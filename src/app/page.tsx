@@ -1,74 +1,68 @@
-"use client"
+'use client';
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { ArtistCard } from "@/components/artist-card"
-import { Navbar } from "@/components/navbar"
-import { ArtistsMap } from "@/components/artists-map"
-import Script from 'next/script'
-import { LocationSearch } from "@/components/location-search"
-import { Users } from "lucide-react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { LatLngBounds } from "leaflet"
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Navbar } from '@/components/navbar';
+import { ArtistsMap } from '@/components/artists-map';
+import Script from 'next/script';
+import { LocationSearch } from '@/components/location-search';
+import { Users } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface Artist {
-  id: string
-  name: string
-  avatar: string
-  styles: string[]
-  gender?: 'male' | 'female' | 'other'
+  id: string;
+  name: string;
+  avatar: string;
+  styles: string[];
+  gender?: 'male' | 'female' | 'other';
   location: {
     address: string
     lat: number
     lng: number
-  }
-  insta_url?: string
-  insta_followers?: number
-  website?: string
+  };
+  insta_url?: string;
+  insta_followers?: number;
+  website?: string;
   tattoos?: Array<{
     id: string
     image: string
-  }>
+  }>;
   salon?: {
     id: string
     name: string
     image: string
-  }
+  };
 }
 
 export default function Home() {
-  const [viewMode, setViewMode] = useState<"list" | "map">("map")
-  const [allArtists, setAllArtists] = useState<Artist[]>([])
-  const [visibleArtists, setVisibleArtists] = useState<Artist[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [followerFilter, setFollowerFilter] = useState<'all' | 'small' | 'medium' | 'large'>('all')
-  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female' | 'other'>('all')
-  const [hasMore, setHasMore] = useState(true)
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('map');
+  const [allArtists, setAllArtists] = useState<Artist[]>([]);
+  const [visibleArtists, setVisibleArtists] = useState<Artist[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [followerFilter, setFollowerFilter] = useState<'all' | 'small' | 'medium' | 'large'>('all');
+  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female' | 'other'>('all');
+  const [hasMore, setHasMore] = useState(true);
   const mapRef = useRef<{
     setView: (center: [number, number], zoom: number) => void;
     getZoom: () => number;
-  } | null>(null)
+  } | null>(null);
   const [mapBounds, setMapBounds] = useState<{
     north: number;
     south: number;
     east: number;
     west: number;
   } | null>(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const apiRequestRef = useRef<AbortController | null>(null)
-  const lastUpdateRef = useRef<number>(0)
-  const UPDATE_THRESHOLD = 1000 // 1 seconde minimum entre les mises à jour
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const apiRequestRef = useRef<AbortController | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+  const UPDATE_THRESHOLD = 1000; // 1 seconde minimum entre les mises à jour
 
   // Fonction pour formater un artiste
   const formatArtist = (artist: any) => ({
     id: artist._id,
     name: artist.name || 'Artiste sans nom',
-    avatar: artist["profile-picture"],
+    avatar: artist['profile-picture'],
     styles: artist.styles || [],
     gender: artist.gender || 'other',
     location: artist.address || undefined,
@@ -78,12 +72,12 @@ export default function Home() {
     salon: artist.salon ? {
       id: artist.salon._id,
       name: artist.salon.name,
-      image: artist.salon["profile-picture"]
+      image: artist.salon['profile-picture'],
     } : undefined,
     tattoos: (artist.tattoos || []).map((tattooId: string) => ({
       id: tattooId,
-      image: `https://blottr.fr/api/1.1/obj/tattoo/${tattooId}/image`
-    }))
+      image: `https://blottr.fr/api/1.1/obj/tattoo/${tattooId}/image`,
+    })),
   });
 
   // Chargement initial de tous les artistes
@@ -91,17 +85,17 @@ export default function Home() {
     const loadAllArtists = async () => {
       // Si ce n'est pas le chargement initial, on ne fait rien
       if (!isInitialLoad) return;
-      
+
       setLoading(true);
-      
+
       // Annuler la requête précédente si elle existe
       if (apiRequestRef.current) {
         apiRequestRef.current.abort();
       }
-      
+
       // Créer un nouveau controller pour cette requête
       apiRequestRef.current = new AbortController();
-      
+
       try {
         let allResults: any[] = [];
         let cursor = 0;
@@ -114,10 +108,10 @@ export default function Home() {
             {
               headers: {
                 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_BUBBLE_API_KEY}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
               },
-              signal: apiRequestRef.current.signal
-            }
+              signal: apiRequestRef.current.signal,
+            },
           );
 
           if (!response.ok) {
@@ -126,18 +120,19 @@ export default function Home() {
 
           const data = await response.json();
           const results = data.response.results;
+          console.log(results.length);
           allResults = [...allResults, ...results];
-          
+
           cursor += limit;
           hasMore = results.length === limit;
-          
+
           console.log(`Chargé ${allResults.length} artistes jusqu'à présent...`);
         }
 
         const artists = allResults
           .map(formatArtist)
           .filter((artist: Artist) => artist.location);
-        
+
         setAllArtists(artists);
         console.log(`Chargé ${artists.length} artistes au total`);
         setIsInitialLoad(false);
@@ -173,7 +168,7 @@ export default function Home() {
       lastUpdateRef.current = now;
       setMapBounds(newBounds);
     }, 300),
-    []
+    [],
   );
 
   // Mise à jour optimisée des artistes visibles
@@ -192,8 +187,8 @@ export default function Home() {
         const followers = artist.insta_followers || 0;
         const followerMatch = followerFilter === 'all' ? true :
           followerFilter === 'small' ? followers < 10000 :
-          followerFilter === 'medium' ? followers >= 10000 && followers < 50000 :
-          followers >= 50000;
+            followerFilter === 'medium' ? followers >= 10000 && followers < 50000 :
+              followers >= 50000;
 
         const genderMatch = genderFilter === 'all' ? true : artist.gender === genderFilter;
 
@@ -201,11 +196,11 @@ export default function Home() {
       });
 
       // Filtrer par zone visible
-      const filtered = filteredArtists.filter(artist => 
+      const filtered = filteredArtists.filter(artist =>
         artist.location.lat >= bounds.south &&
         artist.location.lat <= bounds.north &&
         artist.location.lng >= bounds.west &&
-        artist.location.lng <= bounds.east
+        artist.location.lng <= bounds.east,
       );
 
       // Trier par nombre de followers
@@ -218,12 +213,12 @@ export default function Home() {
 
       const visibleCount = Math.min(maxArtists, filtered.length);
       setVisibleArtists(filtered.slice(0, visibleCount));
-      
+
       if (filtered.length > 0 && visibleCount !== visibleArtists.length) {
         console.log(`Affichage de ${visibleCount} artistes sur ${filtered.length} dans la zone (zoom: ${bounds ? (mapRef.current?.getZoom?.() || 6) : 6})`);
       }
     }, 300),
-    []
+    [],
   );
 
   // Fonction debounce helper
@@ -250,7 +245,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <Script 
+      <Script
         src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         strategy="afterInteractive"
       />
@@ -277,7 +272,8 @@ export default function Home() {
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 whitespace-nowrap">
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 whitespace-nowrap">
                     <Users className="h-4 w-4" />
                     <span className="text-sm">
                       {followerFilter === 'all' && 'Tous les followers'}
@@ -335,7 +331,8 @@ export default function Home() {
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 whitespace-nowrap">
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 whitespace-nowrap">
                     <Users className="h-4 w-4" />
                     <span className="text-sm">
                       {genderFilter === 'all' && 'Tous les genres'}
@@ -394,11 +391,11 @@ export default function Home() {
           </div>
 
           {/* La carte est toujours affichée */}
-          <ArtistsMap 
+          <ArtistsMap
             artists={visibleArtists}
             onLocationSelect={(location) => {
               if (mapRef.current) {
-                mapRef.current.setView([location.lat, location.lng], 13)
+                mapRef.current.setView([location.lat, location.lng], 13);
               }
             }}
             onViewChange={handleMapViewChange}
@@ -427,12 +424,13 @@ export default function Home() {
 
           {/* Messages d'erreur */}
           {error && (
-            <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded shadow-lg">
+            <div
+              className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded shadow-lg">
               {error}
             </div>
           )}
         </div>
       </main>
     </div>
-  )
+  );
 } 
